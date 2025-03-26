@@ -1,4 +1,10 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash 
+
+# 定义颜色
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+plain='\033[0m'
 
 # 欢迎词和联系方式
 echo -e "${green}欢迎使用尼古拉斯狗蛋的 x-ui 安装脚本！${plain}"
@@ -7,16 +13,13 @@ echo -e "${green}联系方式: V858737833，B站ID:nicholas-goudan，https://spa
 echo -e "${yellow}请使用尼古拉斯狗蛋的正版代码，防止被骗${plain}"
 echo -e "----------------------------------------------"
 
-# 定义颜色
-red='\033[0;31m'
-green='\033[0;32m'
-yellow='\033[0;33m'
-plain='\033[0m'
-
 cur_dir=$(pwd)
 
 # check root
-[[ $EUID -ne 0 ]] && echo -e "${red}错误：${plain} 必须使用root用户运行此脚本！\n" && exit 1
+if [[ $EUID -ne 0 ]]; then
+    echo -e "${red}错误：${plain} 必须使用root用户运行此脚本！\n"
+    exit 1
+fi
 
 # check os
 if [[ -f /etc/redhat-release ]]; then
@@ -34,10 +37,12 @@ elif cat /proc/version | grep -Eqi "ubuntu"; then
 elif cat /proc/version | grep -Eqi "centos|red hat|redhat"; then
     release="centos"
 else
-    echo -e "${red}未检测到系统版本，请联系脚本作者！${plain}\n" && exit 1
+    echo -e "${red}未检测到系统版本，请联系脚本作者！${plain}\n"
+    exit 1
 fi
 
-arch=$(arch)
+# check architecture
+arch=$(uname -m)
 
 if [[ $arch == "x86_64" || $arch == "x64" || $arch == "s390x" || $arch == "amd64" ]]; then
     arch="amd64"
@@ -50,7 +55,7 @@ fi
 
 echo "架构: ${arch}"
 
-if [ $(getconf WORD_BIT) != '32' ] && [ $(getconf LONG_BIT) != '64' ]; then
+if [ $(getconf LONG_BIT) != '64' ]; then
     echo "本软件不支持 32 位系统(x86)，请使用 64 位系统(x86_64)，如果检测有误，请联系作者"
     exit -1
 fi
@@ -67,30 +72,41 @@ fi
 
 if [[ x"${release}" == x"centos" ]]; then
     if [[ ${os_version} -le 6 ]]; then
-        echo -e "${red}请使用 CentOS 7 或更高版本的系统！${plain}\n" && exit 1
+        echo -e "${red}请使用 CentOS 7 或更高版本的系统！${plain}\n"
+        exit 1
     fi
 elif [[ x"${release}" == x"ubuntu" ]]; then
     if [[ ${os_version} -lt 16 ]]; then
-        echo -e "${red}请使用 Ubuntu 16 或更高版本的系统！${plain}\n" && exit 1
+        echo -e "${red}请使用 Ubuntu 16 或更高版本的系统！${plain}\n"
+        exit 1
     fi
 elif [[ x"${release}" == x"debian" ]]; then
     if [[ ${os_version} -lt 8 ]]; then
-        echo -e "${red}请使用 Debian 8 或更高版本的系统！${plain}\n" && exit 1
+        echo -e "${red}请使用 Debian 8 或更高版本的系统！${plain}\n"
+        exit 1
     fi
 fi
 
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
+        if ! command -v yum &>/dev/null; then
+            echo -e "${red}未找到 yum，安装失败！${plain}"
+            exit 1
+        fi
         yum install wget curl tar jq -y
     else
+        if ! command -v apt &>/dev/null; then
+            echo -e "${red}未找到 apt，安装失败！${plain}"
+            exit 1
+        fi
         apt install wget curl tar jq -y
     fi
 }
 
-#This function will be called when user installed x-ui out of sercurity
+# 安全设置
 config_after_install() {
     echo -e "${yellow}出于安全考虑，安装/更新完成后需要强制修改端口与账户密码${plain}"
-    read -p "确认是否继续,如选择n则跳过本次端口与账户密码设定[y/n]": config_confirm
+    read -p "确认是否继续,如选择n则跳过本次端口与账户密码设定[y/n]:" config_confirm
     if [[ x"${config_confirm}" == x"y" || x"${config_confirm}" == x"Y" ]]; then
         read -p "请设置您的账户名:" config_account
         echo -e "${yellow}您的账户名将设定为:${config_account}${plain}"
@@ -98,6 +114,8 @@ config_after_install() {
         echo -e "${yellow}您的账户密码将设定为:${config_password}${plain}"
         read -p "请设置面板访问端口:" config_port
         echo -e "${yellow}您的面板访问端口将设定为:${config_port}${plain}"
+        # 提醒用户确保端口已放行
+        echo -e "${yellow}请确保 ${config_port} 端口已在防火墙中放行${plain}"
         echo -e "${yellow}确认设定,设定中${plain}"
         /usr/local/x-ui/x-ui setting -username ${config_account} -password ${config_password}
         echo -e "${yellow}账户密码设定完成${plain}"
@@ -132,7 +150,11 @@ install_x-ui() {
         last_version=$(curl -Lsk "https://api.github.com/repos/z4979511/xui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$last_version" ]]; then
             echo -e "${red}检测 x-ui 版本失败，可能是超出 Github API 限制，请稍后再试，或手动指定 x-ui 版本安装${plain}"
-            exit 1
+            read -p "请输入你想安装的 x-ui 版本号 (例如: v0.3.4.4): " last_version
+            if [[ -z "$last_version" ]]; then
+                echo -e "${red}未指定版本，安装失败！${plain}"
+                exit 1
+            fi
         fi
         echo -e "检测到 x-ui 最新版本：${last_version}，开始安装"
         wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz https://github.com/z4979511/xui/releases/download/${last_version}/x-ui-linux-${arch}.tar.gz
@@ -145,54 +167,4 @@ install_x-ui() {
         url="https://github.com/z4979511/xui/releases/download/${last_version}/x-ui-linux-${arch}.tar.gz"
         echo -e "开始安装 x-ui v$1"
         wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz ${url}
-        if [[ $? -ne 0 ]]; then
-            echo -e "${red}下载 x-ui v$1 失败，请确保此版本存在${plain}"
-            exit 1
-        fi
-    fi
-
-    if [[ -e /usr/local/x-ui/ ]]; then
-        rm /usr/local/x-ui/ -rf
-    fi
-
-    tar zxvf x-ui-linux-${arch}.tar.gz
-    rm x-ui-linux-${arch}.tar.gz -f
-    cd x-ui
-    chmod +x x-ui bin/xray-linux-${arch}
-    cp -f x-ui.service /etc/systemd/system/
-    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/z4979511/xui/main/x-ui.sh
-    chmod +x /usr/local/x-ui/x-ui.sh
-    chmod +x /usr/bin/x-ui
-    config_after_install
-    #echo -e "如果是全新安装，默认网页端口为 ${green}54321${plain}，用户名和密码默认都是 ${green}admin${plain}"
-    #echo -e "请自行确保此端口没有被其他程序占用，${yellow}并且确保 54321 端口已放行${plain}"
-    #    echo -e "若想将 54321 修改为其它端口，输入 x-ui 命令进行修改，同样也要确保你修改的端口也是放行的"
-    #echo -e ""
-    #echo -e "如果是更新面板，则按你之前的方式访问面板"
-    #echo -e ""
-    systemctl daemon-reload
-    systemctl enable x-ui
-    systemctl start x-ui
-    echo -e "${green}x-ui v${last_version}${plain} 安装完成，面板已启动，"
-    echo -e ""
-    echo -e "x-ui 管理脚本使用方法: "
-    echo -e "----------------------------------------------"
-    echo -e "x-ui              - 显示管理菜单 (功能更多)"
-    echo -e "x-ui start        - 启动 x-ui 面板"
-    echo -e "x-ui stop         - 停止 x-ui 面板"
-    echo -e "x-ui restart      - 重启 x-ui 面板"
-    echo -e "x-ui status       - 查看 x-ui 状态"
-    echo -e "x-ui enable       - 设置 x-ui 开机自启"
-    echo -e "x-ui disable      - 取消 x-ui 开机自启"
-    echo -e "x-ui log          - 查看 x-ui 日志"
-    echo -e "x-ui v2-ui        - 迁移本机器的 v2-ui 账号数据至 x-ui"
-    echo -e "x-ui update       - 更新 x-ui 面板"
-    echo -e "x-ui install      - 安装 x-ui 面板"
-    echo -e "x-ui uninstall    - 卸载 x-ui 面板"
-    echo -e "x-ui geo          - 更新 geo  数据"
-    echo -e "----------------------------------------------"
-}
-
-echo -e "${green}开始安装${plain}"
-install_base
-install_x-ui $1
+        if [[ $? -
