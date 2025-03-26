@@ -148,7 +148,7 @@ install_x-ui() {
 
     if [ $# == 0 ]; then
         last_version=$(curl -Lsk "https://api.github.com/repos/z4979511/xui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-        if [[ ! -n "$last_version" ]]; then
+        if [[ -z "$last_version" ]]; then
             echo -e "${red}检测 x-ui 版本失败，可能是超出 Github API 限制，请稍后再试，或手动指定 x-ui 版本安装${plain}"
             read -p "请输入你想安装的 x-ui 版本号 (例如: v0.3.4.4): " last_version
             if [[ -z "$last_version" ]]; then
@@ -166,5 +166,4 @@ install_x-ui() {
         last_version=$1
         url="https://github.com/z4979511/xui/releases/download/${last_version}/x-ui-linux-${arch}.tar.gz"
         echo -e "开始安装 x-ui v$1"
-        wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz ${url}
-        if [[ $? -
+        wget -N --no-check-certificate -O /usr/local/x-ui-linux-${
