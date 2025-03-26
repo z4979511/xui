@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# 欢迎词和联系方式
+echo -e "${green}欢迎使用尼古拉斯狗蛋的 x-ui 安装脚本！${plain}"
+echo -e "${yellow}感谢您的支持！如有任何问题，欢迎联系我:${plain}"
+echo -e "${green}联系方式: V858737833，B站ID:nicholas-goudan，https://space.bilibili.com/16297540${plain}"
+echo -e "${yellow}请使用尼古拉斯狗蛋的正版代码，防止被骗${plain}"
+echo -e "----------------------------------------------"
+
+# 定义颜色
 red='\033[0;31m'
 green='\033[0;32m'
 yellow='\033[0;33m'
